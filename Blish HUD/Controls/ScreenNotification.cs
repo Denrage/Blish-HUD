@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using Glide;
 using Microsoft.Xna.Framework;
@@ -15,6 +16,7 @@ namespace Blish_HUD.Controls {
 
         #region Load Static
 
+        private static readonly object _showNotificationLock = new object();
         private static readonly SynchronizedCollection<ScreenNotification> _activeScreenNotifications = new SynchronizedCollection<ScreenNotification>();
 
         private static readonly BitmapFont _fontMenomonia36Regular = Content.GetFont(ContentService.FontFace.Menomonia, ContentService.FontSize.Size36, ContentService.FontStyle.Regular);
@@ -213,19 +215,21 @@ namespace Blish_HUD.Controls {
         }
 
         public static void ShowNotification(string message, NotificationType type = NotificationType.Info, Texture2D icon = null, int duration = DURATION_DEFAULT) {
-            var nNot = new ScreenNotification(message, type, icon, duration) {
-                Parent = Graphics.SpriteScreen
-            };
+            lock (_showNotificationLock) {
+                var nNot = new ScreenNotification(message, type, icon, duration) {
+                    Parent = Graphics.SpriteScreen
+                };
 
-            nNot.ZIndex = _activeScreenNotifications.DefaultIfEmpty(nNot).Max(n => n.ZIndex) + 1;
+                nNot.ZIndex = _activeScreenNotifications.DefaultIfEmpty(nNot).Max(n => n.ZIndex) + 1;
 
-            foreach (var activeScreenNotification in _activeScreenNotifications) {
-                activeScreenNotification.SlideDown((int)(_fontMenomonia36Regular.LineHeight * 0.75f));
+                foreach (var activeScreenNotification in _activeScreenNotifications.ToImmutableArray()) {
+                    activeScreenNotification.SlideDown((int)(_fontMenomonia36Regular.LineHeight * 0.75f));
+                }
+
+                _activeScreenNotifications.Add(nNot);
+
+                nNot.Show();
             }
-
-            _activeScreenNotifications.Add(nNot);
-
-            nNot.Show();
         }
 
     }
